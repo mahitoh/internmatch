@@ -14,8 +14,13 @@ export function AuthProvider({ children }) {
     try {
       const res = await authApi.me();
       setUser(res.data.data);
-    } catch {
-      clearTokens();
+    } catch (err) {
+      // Only wipe the session on a genuine auth failure (401 after refresh also
+      // failed). Network errors, 429s, and 5xx should not log the user out.
+      if (err?.response?.status === 401) {
+        clearTokens();
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }

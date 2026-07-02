@@ -511,8 +511,8 @@ async function safeDeleteIn(table, column, values) {
       email: c.email,
       password: PASSWORD,
       email_confirm: true,
-      app_metadata: { role: 'company' },
-      user_metadata: { company_name: c.companyName },
+      app_metadata:  { role: 'company' },
+      user_metadata: { role: 'company', company_name: c.companyName },
     });
     if (auErr) { err(`    ✖ ${c.companyName} auth: ${auErr.message}`); continue; }
 
