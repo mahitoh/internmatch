@@ -33,7 +33,7 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const generalLimiter = rateLimit({
   windowMs:       15 * 60 * 1000, // 15 minutes
-  max:            100,
+  max:            1000,
   standardHeaders: true,
   legacyHeaders:  false,
 });

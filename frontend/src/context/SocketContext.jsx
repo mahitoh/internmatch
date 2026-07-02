@@ -8,7 +8,6 @@ const SocketContext = createContext(null);
 function createSocket(token) {
   return io(import.meta.env.VITE_SOCKET_URL || '/', {
     auth: { token },
-    reconnectionAttempts: 5,
     transports: ['websocket', 'polling'],
   });
 }
@@ -28,25 +27,30 @@ export function SocketProvider({ children }) {
 
     const token = getToken('accessToken');
     const s = createSocket(token);
+    socketRef.current = s;
 
-    s.on('connect', () => { socketRef.current = s; setSocket(s); });
+    s.on('connect', () => setSocket(s));
     s.on('connect_error', (err) => console.warn('Socket error:', err.message));
 
     // Reconnect with fresh token when the HTTP interceptor silently refreshes it
     const handleTokenRefresh = (e) => {
       const newToken = e.detail?.accessToken;
       if (!newToken) return;
-      socketRef.current?.disconnect();
+      const prev = socketRef.current;
       const fresh = createSocket(newToken);
-      fresh.on('connect', () => { socketRef.current = fresh; setSocket(fresh); });
+      socketRef.current = fresh;
+      fresh.on('connect', () => setSocket(fresh));
       fresh.on('connect_error', (err) => console.warn('Socket error:', err.message));
+      prev?.disconnect();
     };
 
     window.addEventListener('token:refreshed', handleTokenRefresh);
 
     return () => {
       window.removeEventListener('token:refreshed', handleTokenRefresh);
-      s.disconnect();
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+      setSocket(null);
     };
   }, [user]);
 

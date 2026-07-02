@@ -104,6 +104,9 @@ exports.updateOfferRules = [
   body('durationWeeks')
     .optional()
     .isInt({ min: 1, max: 104 }).withMessage('Duration must be between 1 and 104 weeks'),
+  body('openings')
+    .optional()
+    .isInt({ min: 1 }).withMessage('Openings must be at least 1'),
   body('isPaid')
     .optional()
     .isBoolean().withMessage('isPaid must be a boolean'),

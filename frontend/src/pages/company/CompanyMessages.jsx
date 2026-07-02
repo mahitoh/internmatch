@@ -20,8 +20,9 @@ export default function CompanyMessages() {
   const [input,        setInput]        = useState('');
   const [sending,      setSending]      = useState(false);
   const [peerTyping,   setPeerTyping]   = useState(false);
-  const bottomRef   = useRef(null);
-  const typingTimer = useRef(null);
+  const bottomRef          = useRef(null);
+  const typingTimer        = useRef(null);
+  const lastScrolledMsgRef = useRef(null);
 
   const { data: threads, isLoading: threadsLoading } = useQuery({
     queryKey: ['message-threads'],
@@ -36,14 +37,26 @@ export default function CompanyMessages() {
 
   useEffect(() => {
     if (!activeAppId) return;
+    let cancelled = false;
     setMessages([]);
     setMsgLoading(true);
-    messagesApi.getThread(activeAppId)
-      .then(r => setMessages(r.data.data || []))
-      .finally(() => setMsgLoading(false));
+    const load = () => messagesApi.getThread(activeAppId)
+      .then(r => { if (!cancelled) setMessages(r.data.data || []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setMsgLoading(false); });
+    load();
+    const poll = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(poll); };
   }, [activeAppId]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    if (!messages.length) return;
+    const lastId = messages[messages.length - 1]?.id;
+    if (lastId && lastId !== lastScrolledMsgRef.current) {
+      lastScrolledMsgRef.current = lastId;
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (!socket || !activeAppId) return;
@@ -64,13 +77,17 @@ export default function CompanyMessages() {
     };
     const onRead = ({ messageIds }) => { setMessages(prev => prev.map(m => messageIds.includes(m.id) ? { ...m, isRead: true } : m)); };
     const onTyping = ({ isTyping }) => setPeerTyping(isTyping);
+    // Re-join the thread room after any reconnect (Socket.IO clears rooms on disconnect)
+    const onReconnect = () => socket.emit('join_thread', activeAppId);
     socket.on('new_message', onMessage);
     socket.on('messages_read', onRead);
     socket.on('user_typing', onTyping);
+    socket.on('connect', onReconnect);
     return () => {
       socket.off('new_message', onMessage);
       socket.off('messages_read', onRead);
       socket.off('user_typing', onTyping);
+      socket.off('connect', onReconnect);
       socket.emit('leave_thread', activeAppId);
       setPeerTyping(false);
     };

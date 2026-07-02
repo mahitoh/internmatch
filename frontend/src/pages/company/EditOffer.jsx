@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Briefcase, MapPin, Banknote, X } from 'lucide-react';
 import { offersApi } from '../../api/offers';
 import Spinner from '../../components/ui/Spinner';
@@ -29,6 +29,7 @@ export default function EditOffer() {
     queryFn:  () => offersApi.getOne(id).then(r => r.data.data),
   });
 
+  const qc = useQueryClient();
   const { register, handleSubmit, watch, reset, formState: { errors, isSubmitting } } = useForm();
   const [skills,     setSkills]     = useState([]);
   const [skillInput, setSkillInput] = useState('');
@@ -97,7 +98,7 @@ export default function EditOffer() {
         requirements:     data.requirements     || undefined,
         location:         data.location,
         durationWeeks:    Number(data.durationWeeks),
-        openings:         data.openings ? Number(data.openings) : undefined,
+        openings:         Number.isFinite(data.openings) && data.openings >= 1 ? data.openings : undefined,
         deadline:         data.deadline,
         startDate:        data.startDate || undefined,
         isPaid:           paid,
@@ -106,6 +107,8 @@ export default function EditOffer() {
         requiredSkills:    allSkills,
         requiredLanguages: languages,
       });
+      qc.invalidateQueries({ queryKey: ['my-offers'] });
+      qc.invalidateQueries({ queryKey: ['offer', id] });
       toast.success('Offer updated!');
       navigate('/company/offers');
     } catch (err) {
@@ -200,7 +203,7 @@ export default function EditOffer() {
             </SelectField>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Number of Openings" type="number" min="1" {...register('openings', { min: 1 })} />
+            <Field label="Number of Openings" type="number" min="1" {...register('openings', { min: 1, valueAsNumber: true })} />
             <Field label="Application Deadline *" type="date" error={errors.deadline?.message}
               {...register('deadline', { required: 'Deadline is required' })} />
           </div>
